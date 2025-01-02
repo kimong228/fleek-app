@@ -1,101 +1,182 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import React, { useState, useEffect } from "react";
+
+const GRID_SIZE = 4;
+
+const getEmptyGrid = () =>
+  Array.from({ length: GRID_SIZE }, () => Array(GRID_SIZE).fill(0));
+
+const getRandomTile = (grid: number[][]): number[][] => {
+  const emptyCells: { row: number; col: number }[] = [];
+  grid.forEach((row, rIdx) =>
+    row.forEach((cell, cIdx) => {
+      if (cell === 0) emptyCells.push({ row: rIdx, col: cIdx });
+    })
+  );
+
+  if (emptyCells.length === 0) return grid;
+
+  const { row, col } = emptyCells[Math.floor(Math.random() * emptyCells.length)];
+  const newValue = Math.random() < 0.9 ? 2 : 4;
+
+  const newGrid = grid.map((row) => [...row]);
+  newGrid[row][col] = newValue;
+
+  return newGrid;
+};
+
+const moveRowLeft = (row: number[]): number[] => {
+  const newRow = row.filter((value) => value !== 0);
+  for (let i = 0; i < newRow.length - 1; i++) {
+    if (newRow[i] === newRow[i + 1]) {
+      newRow[i] *= 2;
+      newRow[i + 1] = 0;
+    }
+  }
+  return newRow.filter((value) => value !== 0).concat(new Array(GRID_SIZE).fill(0)).slice(0, GRID_SIZE);
+};
+
+const rotateGrid = (grid: number[][]): number[][] => {
+  const newGrid = getEmptyGrid();
+  grid.forEach((row, rIdx) =>
+    row.forEach((value, cIdx) => {
+      newGrid[cIdx][GRID_SIZE - 1 - rIdx] = value;
+    })
+  );
+  return newGrid;
+};
+
+const moveGridLeft = (grid: number[][]): number[][] => {
+  return grid.map((row) => moveRowLeft(row));
+};
+
+const areGridsEqual = (grid1: number[][], grid2: number[][]): boolean => {
+  return grid1.flat().join("") === grid2.flat().join("");
+};
+
+const Game2048: React.FC = () => {
+  const [grid, setGrid] = useState<number[][]>(getRandomTile(getEmptyGrid()));
+  const [score, setScore] = useState(0);
+  const [gameOver, setGameOver] = useState(false);
+
+  const move = (direction: "left" | "right" | "up" | "down") => {
+    let newGrid = grid;
+
+    if (direction === "left") {
+      newGrid = moveGridLeft(grid);
+    } else if (direction === "right") {
+      newGrid = rotateGrid(rotateGrid(moveGridLeft(rotateGrid(rotateGrid(grid)))));
+    } else if (direction === "up") {
+      newGrid = rotateGrid(moveGridLeft(rotateGrid(rotateGrid(rotateGrid(grid)))));
+    } else if (direction === "down") {
+      newGrid = rotateGrid(rotateGrid(rotateGrid(moveGridLeft(rotateGrid(grid)))));
+    }
+
+    if (!areGridsEqual(grid, newGrid)) {
+      const updatedGrid = getRandomTile(newGrid);
+      setGrid(updatedGrid);
+      const newScore = updatedGrid.flat().reduce((acc, value) => acc + value, 0);
+      setScore(newScore);
+
+      if (!canMove(updatedGrid)) {
+        setGameOver(true);
+      }
+    }
+  };
+
+  const canMove = (grid: number[][]): boolean => {
+    for (let r = 0; r < GRID_SIZE; r++) {
+      for (let c = 0; c < GRID_SIZE; c++) {
+        if (grid[r][c] === 0) return true;
+        if (c < GRID_SIZE - 1 && grid[r][c] === grid[r][c + 1]) return true;
+        if (r < GRID_SIZE - 1 && grid[r][c] === grid[r + 1][c]) return true;
+      }
+    }
+    return false;
+  };
+
+  const handleKeyDown = (e: KeyboardEvent) => {
+    if (gameOver) return;
+
+    if (e.key === "ArrowLeft") move("left");
+    if (e.key === "ArrowRight") move("right");
+    if (e.key === "ArrowUp") move("up");
+    if (e.key === "ArrowDown") move("down");
+  };
+
+  useEffect(() => {
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [grid, gameOver]);
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        minHeight: "100vh",
+        backgroundColor: "#faf8ef",
+        color: "#776e65",
+        textAlign: "center",
+      }}
+    >
+      <h1>2048</h1>
+      <div style={{ marginBottom: "20px" }}>
+        <p>
+          <strong>Controls:</strong>
+        </p>
+        <p>Arrow Keys: Move tiles</p>
+      </div>
+      <h2>Score: {score}</h2>
+      {gameOver && <h3>Game Over! Try again.</h3>}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: `repeat(${GRID_SIZE}, 80px)`,
+          gap: "10px",
+          backgroundColor: "#bbada0",
+          padding: "10px",
+          borderRadius: "10px",
+        }}
+      >
+        {grid.flat().map((value, idx) => (
+          <div
+            key={idx}
+            style={{
+              width: "80px",
+              height: "80px",
+              backgroundColor: value ? "#f2b179" : "#cdc1b4",
+              color: value > 4 ? "#f9f6f2" : "#776e65",
+              fontSize: "24px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontWeight: "bold",
+              borderRadius: "5px",
+            }}
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
+            {value || ""}
+          </div>
+        ))}
+      </div>
+      {gameOver && (
+        <button
+          onClick={() => setGrid(getRandomTile(getEmptyGrid()))}
+          style={{
+            marginTop: "20px",
+            padding: "10px 20px",
+            fontSize: "16px",
+            cursor: "pointer",
+          }}
         >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+          Restart
+        </button>
+      )}
     </div>
   );
-}
+};
+
+export default Game2048;
