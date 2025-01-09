@@ -123,7 +123,7 @@ const Game2048: React.FC = () => {
         textAlign: "center",
       }}
     >
-      <h1>2048</h1>
+      <h1>2048 Game</h1>
       <div style={{ marginBottom: "20px" }}>
         <p>
           <strong>Controls:</strong>
